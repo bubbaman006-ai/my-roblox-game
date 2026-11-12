@@ -1,0 +1,6 @@
+{
+  "extraKnownMarketplaces": {
+    "lihfolk": { "source": { "source": "github", "repo": "lihfolk-cy/v2-vault" } }
+  },
+  "enabledPlugins": { "lihfolk@lihfolk": true }
+}
