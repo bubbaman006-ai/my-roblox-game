@@ -12,6 +12,7 @@ local GameState = require(script.GameState)
 local EnemyService = require(script.EnemyService)
 local TowerService = require(script.TowerService)
 local WaveService = require(script.WaveService)
+local VoteService = require(script.VoteService)
 
 local map = Map.load()
 EnemyService.init(map.path, map.enemiesFolder)
@@ -94,11 +95,24 @@ Net.event(Net.Names.StartGame).OnServerEvent:Connect(function(player)
 	end
 end)
 
+Net.event(Net.Names.VoteSkip).OnServerEvent:Connect(function(player)
+	if allowed(player, "VoteSkip") then
+		VoteService.toggleSkip(player)
+	end
+end)
+
+Net.event(Net.Names.VoteSpeed).OnServerEvent:Connect(function(player)
+	if allowed(player, "VoteSpeed") then
+		VoteService.toggleSpeed(player)
+	end
+end)
+
 RunService.Heartbeat:Connect(function(dt)
 	local phase = GameState.getPhase()
 	if phase == "Wave" or phase == "Intermission" then
-		EnemyService.step(dt)
-		TowerService.step(dt)
+		local scaled = dt * GameState.getSpeed()
+		EnemyService.step(scaled)
+		TowerService.step(scaled)
 	end
 end)
 

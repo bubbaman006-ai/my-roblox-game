@@ -7,6 +7,8 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local GameState = require(script.Parent.GameState)
 local EnemyService = require(script.Parent.EnemyService)
 local TowerService = require(script.Parent.TowerService)
+local VoteService = require(script.Parent.VoteService)
+local StatsService = require(script.Parent.StatsService)
 
 local WaveService = {}
 
@@ -22,26 +24,33 @@ local function alive(): boolean
 	return GameState.getLives() > 0
 end
 
--- Waits up to `seconds`, returning false early if the base falls.
+-- Waits `seconds` of game time (sped up by the 2x vote), returning false early if the base falls.
 local function waitAlive(seconds: number): boolean
-	local deadline = os.clock() + seconds
-	while os.clock() < deadline do
+	local remaining = seconds
+	while remaining > 0 do
 		if not alive() then
 			return false
 		end
-		task.wait(math.min(0.1, deadline - os.clock()))
+		remaining -= task.wait(math.min(0.1, remaining / GameState.getSpeed())) * GameState.getSpeed()
 	end
 	return alive()
 end
 
+local function intermission()
+	GameState.setPhase("Intermission")
+	VoteService.clearSkip()
+	local remaining = Config.IntermissionSeconds
+	while remaining > 0 and not VoteService.skipPassed() do
+		GameState.setCountdown(math.ceil(remaining))
+		remaining -= task.wait(0.1) * GameState.getSpeed()
+	end
+	GameState.setCountdown(0)
+	VoteService.clearSkip()
+end
+
 local function playRound(): "Victory" | "GameOver"
 	for waveNumber, wave in Config.Waves do
-		GameState.setPhase("Intermission")
-		for remaining = Config.IntermissionSeconds, 1, -1 do
-			GameState.setCountdown(remaining)
-			task.wait(1)
-		end
-		GameState.setCountdown(0)
+		intermission()
 
 		GameState.setWave(waveNumber)
 		GameState.setPhase("Wave")
@@ -77,6 +86,8 @@ function WaveService.run()
 		local result = playRound()
 		GameState.setPhase(result)
 		EnemyService.clear()
+		StatsService.roundFinished(result == "Victory", GameState.getWave())
+		VoteService.clearAll()
 		for remaining = Config.ResetDelaySeconds, 1, -1 do
 			GameState.setCountdown(remaining)
 			task.wait(1)

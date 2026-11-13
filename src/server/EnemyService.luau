@@ -6,7 +6,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local Path = require(ReplicatedStorage.Shared.Path)
+local Net = require(ReplicatedStorage.Shared.Net)
 local GameState = require(script.Parent.GameState)
+local StatsService = require(script.Parent.StatsService)
+
+local effect = Net.unreliable(Net.UnreliableNames.Effect)
 
 export type Enemy = {
 	id: number,
@@ -97,13 +101,16 @@ function EnemyService.spawn(kind: string)
 	count += 1
 end
 
-function EnemyService.damage(enemy: Enemy, amount: number)
+-- `source` is the player whose tower dealt the hit; they get credit for the kill.
+function EnemyService.damage(enemy: Enemy, amount: number, source: Player?)
 	if not enemy.alive then
 		return
 	end
 	enemy.health -= amount
 	if enemy.health <= 0 then
 		GameState.addCashToAll(enemy.def.reward)
+		StatsService.addKill(source)
+		effect:FireAllClients("pop", enemy.part.Position, enemy.def.color, enemy.def.size)
 		remove(enemy)
 	else
 		enemy.bar.Size = UDim2.fromScale(enemy.health / enemy.def.health, 1)

@@ -13,6 +13,7 @@ local Config = require(Shared:WaitForChild("Config"))
 local Path = require(Shared:WaitForChild("Path"))
 local Placement = require(Shared:WaitForChild("Placement"))
 local Net = require(Shared:WaitForChild("Net"))
+local Effects = require(script:WaitForChild("Effects"))
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
@@ -26,7 +27,10 @@ local remotes = {
 	sell = Net.event(Net.Names.SellTower),
 	start = Net.event(Net.Names.StartGame),
 	notify = Net.event(Net.Names.Notify),
+	voteSkip = Net.event(Net.Names.VoteSkip),
+	voteSpeed = Net.event(Net.Names.VoteSpeed),
 }
+Net.unreliable(Net.UnreliableNames.Effect).OnClientEvent:Connect(Effects.handle)
 
 -- Map info shared by the server ------------------------------------------------
 
@@ -126,6 +130,27 @@ local startButton = button(
 	UDim2.new(0.5, -110, 0, 64)
 )
 
+-- Vote buttons (skip intermission, 2x speed) under the top bar's right side.
+local skipButton =
+	button(gui, "", Color3.fromRGB(200, 140, 40), UDim2.fromOffset(150, 40), UDim2.new(0.8, -310, 0, 60))
+local speedButton =
+	button(gui, "", Color3.fromRGB(120, 80, 200), UDim2.fromOffset(150, 40), UDim2.new(0.8, -150, 0, 60))
+local myVotes = { skip = false, speed = false }
+
+-- Personal record, bottom-left.
+local recordLabel = label(gui, "", UDim2.fromOffset(260, 22), UDim2.new(0, 12, 1, -34))
+recordLabel.TextXAlignment = Enum.TextXAlignment.Left
+recordLabel.Font = Enum.Font.Gotham
+
+local function refreshRecord()
+	local best = player:GetAttribute("BestWave")
+	local kills = player:GetAttribute("TotalKills")
+	recordLabel.Text = if best ~= nil then string.format("Best wave %d · %d kills", best :: number, (kills :: number?) or 0) else ""
+end
+player:GetAttributeChangedSignal("BestWave"):Connect(refreshRecord)
+player:GetAttributeChangedSignal("TotalKills"):Connect(refreshRecord)
+refreshRecord()
+
 local notice = label(gui, "", UDim2.new(0.5, 0, 0, 30), UDim2.new(0.25, 0, 0, 128))
 notice.TextColor3 = Color3.fromRGB(255, 200, 120)
 notice.TextTransparency = 1
@@ -168,9 +193,35 @@ local function refreshTopBar()
 		statusLabel.Text = "Victory! · " .. countdown
 	end
 	startButton.Visible = phase == "Lobby"
+
+	if phase ~= "Intermission" then
+		myVotes.skip = false
+	end
+	if phase == "Lobby" or phase == "GameOver" or phase == "Victory" then
+		myVotes.speed = false
+	end
+	local neededVotes = gameState:GetAttribute("VotesNeeded") :: number
+	skipButton.Visible = phase == "Intermission"
+	skipButton.Text = string.format("%sSkip %d/%d", if myVotes.skip then "✓ " else "", gameState:GetAttribute("SkipVotes") :: number, neededVotes)
+	speedButton.Visible = phase == "Intermission" or phase == "Wave"
+	local speed = gameState:GetAttribute("Speed") :: number
+	speedButton.Text = if speed > 1
+		then string.format("%sx Speed ✓", tostring(speed))
+		else string.format("%s2x %d/%d", if myVotes.speed then "✓ " else "", gameState:GetAttribute("SpeedVotes") :: number, neededVotes)
 end
 
-for _, attribute in { "Lives", "Wave", "Phase", "Countdown" } do
+skipButton.Activated:Connect(function()
+	myVotes.skip = not myVotes.skip
+	remotes.voteSkip:FireServer()
+	refreshTopBar()
+end)
+speedButton.Activated:Connect(function()
+	myVotes.speed = not myVotes.speed
+	remotes.voteSpeed:FireServer()
+	refreshTopBar()
+end)
+
+for _, attribute in { "Lives", "Wave", "Phase", "Countdown", "Speed", "SkipVotes", "SpeedVotes", "VotesNeeded" } do
 	gameState:GetAttributeChangedSignal(attribute):Connect(refreshTopBar)
 end
 startButton.Activated:Connect(function()
@@ -432,8 +483,16 @@ local function handlePointer(screenPosition: Vector3)
 		end
 		return
 	end
-	local part = hit and hit.Instance
-	if part and part:IsDescendantOf(towersFolder) and part:GetAttribute("OwnerId") == player.UserId then
+	-- Turret pieces are children of the tower's base part, which holds the attributes.
+	local part: Instance? = hit and hit.Instance
+	while part and part.Parent ~= towersFolder do
+		part = part.Parent
+		if part == workspace or part == nil then
+			part = nil
+			break
+		end
+	end
+	if part and part:IsA("BasePart") and part:GetAttribute("OwnerId") == player.UserId then
 		selectTower(part)
 	else
 		deselect()

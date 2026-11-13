@@ -45,6 +45,9 @@ Config.MaxTowersPerPlayer = 40
 Config.MinTowerSpacing = 4 -- studs between tower centres
 Config.PathHalfWidth = 4 -- towers cannot sit within this (+ tower radius) of the path
 Config.ResetDelaySeconds = 10
+Config.FastSpeed = 2 -- game speed when the 2x vote passes
+Config.StatsStoreName = "PlayerStats_v1"
+Config.AutosaveSeconds = 120
 
 Config.Towers = {
 	Gunner = {

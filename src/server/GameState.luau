@@ -18,6 +18,10 @@ stateFolder:SetAttribute("Lives", Config.StartingLives)
 stateFolder:SetAttribute("Wave", 0)
 stateFolder:SetAttribute("TotalWaves", #Config.Waves)
 stateFolder:SetAttribute("Countdown", 0)
+stateFolder:SetAttribute("Speed", 1)
+stateFolder:SetAttribute("SkipVotes", 0)
+stateFolder:SetAttribute("SpeedVotes", 0)
+stateFolder:SetAttribute("VotesNeeded", 1)
 stateFolder.Parent = ReplicatedStorage
 
 local cash: { [Player]: number } = {}
@@ -46,6 +50,19 @@ end
 
 function GameState.setCountdown(seconds: number)
 	stateFolder:SetAttribute("Countdown", seconds)
+end
+
+function GameState.getWave(): number
+	return stateFolder:GetAttribute("Wave") :: number
+end
+
+function GameState.getSpeed(): number
+	return stateFolder:GetAttribute("Speed") :: number
+end
+
+-- Generic setter for the small vote/speed attributes VoteService owns.
+function GameState.set(attribute: string, value: number)
+	stateFolder:SetAttribute(attribute, value)
 end
 
 -- Cash ------------------------------------------------------------------------

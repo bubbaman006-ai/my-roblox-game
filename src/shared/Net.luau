@@ -11,7 +11,14 @@ Net.Names = {
 	UpgradeTower = "UpgradeTower", -- client -> server: (towerId: number)
 	SellTower = "SellTower", -- client -> server: (towerId: number)
 	StartGame = "StartGame", -- client -> server: ()
+	VoteSkip = "VoteSkip", -- client -> server: () toggles this player's skip vote
+	VoteSpeed = "VoteSpeed", -- client -> server: () toggles this player's 2x speed vote
 	Notify = "Notify", -- server -> client: (message: string)
+}
+
+-- Cosmetic, high-frequency, fine to drop: sent unreliably.
+Net.UnreliableNames = {
+	Effect = "Effect", -- server -> clients: (kind: string, ...) see client/Effects.luau
 }
 
 local FOLDER_NAME = "Remotes"
@@ -29,6 +36,11 @@ function Net.folder(): Folder
 			remote.Name = name
 			remote.Parent = folder
 		end
+		for _, name in Net.UnreliableNames do
+			local remote = Instance.new("UnreliableRemoteEvent")
+			remote.Name = name
+			remote.Parent = folder
+		end
 		folder.Parent = ReplicatedStorage
 		return folder
 	end
@@ -38,6 +50,12 @@ end
 function Net.event(name: string): RemoteEvent
 	local remote = Net.folder():WaitForChild(name)
 	assert(remote:IsA("RemoteEvent"), name .. " is not a RemoteEvent")
+	return remote
+end
+
+function Net.unreliable(name: string): UnreliableRemoteEvent
+	local remote = Net.folder():WaitForChild(name)
+	assert(remote:IsA("UnreliableRemoteEvent"), name .. " is not an UnreliableRemoteEvent")
 	return remote
 end
 
